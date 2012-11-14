@@ -14,6 +14,12 @@ module CanHasState
         self.state_machines += [[column.to_sym, d]]
       end
 
+      def extend_state_machine(column, &block)
+        sm = state_machines.detect{|(col, stm)| col == column}
+        raise("Unknown state machine #{column}") unless sm
+        sm[1].extend_machine &block
+      end
+
     end
 
     included do
@@ -27,6 +33,8 @@ module CanHasState
       after_save :can_has_deferred_state_triggers
     end
 
+
+    private
 
     def can_has_initial_states
       state_machines.each do |(column, sm)|
@@ -74,7 +82,7 @@ module CanHasState
         if !sm.known?(to)
           err << [column, "is not a known state"]
         elsif !sm.allow?(self, to) #state_machine_allow?(column, to)
-          err << [column, "has invalid transition from #{from} to #{to}"]
+          err << [column, sm.message(to) % {:from=>from, :to=>to}]
         end
       end
       err
@@ -85,8 +93,6 @@ module CanHasState
         errors.add column, msg
       end
     end
-
-    private
 
     def state_machine_allow?(column, to)
       sm = state_machines.detect{|(col, stm)| col == column}

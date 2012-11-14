@@ -1,35 +1,40 @@
-= CanHasState
+# CanHasState #
 
 
-can_has_state is a simplified state machine gem. It relies on ActiveModel and
+`can_has_state` is a simplified state machine gem. It relies on ActiveModel and
 should be compatible with any ActiveModel-compatible persistence layer.
 
 Key features:
+
 * Support for multiple state machines
 * Simplified DSL syntax
 * Few added methods avoids clobbering up model's namespace
-* Compatible with ActionPack-style attribute value changes via
-  :state_column=>'new_state'
+* Compatible with ActionPack-style attribute value changes via  
+  `:state_column => 'new_state'`
 * Use any ActiveModel-compatible persistence layer (including your own)
 
 
 
-== DSL
+## DSL ##
 
-==== ActiveRecord
+### ActiveRecord ###
 
     class Account < ActiveRecord::Base
 
       # Choose your state column name. In this case, it's :state.
       #   It's super easy to have multiple state machines.
+      #
       state_machine :state do
 
         # Define each possible state. Add :initial to indicate which state
-        #   will be selected first. If not provided, will set to first state.
+        #   will be selected first, if the state hasn't been already set. If 
+        #   not provided, will set :initial to the first defined state.
+        #
         # :on_enter and :on_exit trigger when this state is entered / exited.
         #   Symbols are assumed to be instance method names. Inline blocks may
         #   also be specified. The _deferred variations are discussed below
         #   under triggers.
+        #
         state :active, :initial,
           :from => :inactive,
           :on_enter => :update_plan_details,
@@ -37,23 +42,37 @@ Key features:
           :on_exit_deferred => lambda { |r| r.stop_billing }
 
         # :from restricts which states can switch to this one. Multiple "from"
-        # states are allowed, as shown under state :deleted.
+        #   states are allowed, as shown under state :deleted.
+        #
+        # If :from is not present, this state may be entered from any other
+        #   state. To prevent ever moving to a given state (only useful if that
+        #   state is also the initial state), use :from => [] .
+        #
         state :inactive,
           :from => [:active]
 
         # :timestamp automatically sets the current date/time when this state
-        #   is entered. Both _at and _on (datetime and date) columns are
+        #   is entered. Both *_at and *_on (datetime and date) columns are
         #   supported.
-        # :guard adds additional restrictions before this state can be entered.
-        #   Like :on_enter/:on_exit, it too can be a method name or a 
+        #
+        # :require adds additional restrictions before this state can be
+        #   entered. Like :on_enter/:on_exit, it can be a method name or a
         #   lambda/Proc. Multiple methods may be provided. Each method must
         #   return a ruby true value (anything except nil or false) for the
-        #   condition to be satisfied.
+        #   condition to be satisfied. If any :require is not true, then the
+        #   state transition is blocked.
+        #
+        # :message allows the validation error message to be customized. It is
+        #   used when conditions for either :from or :require fail. The default
+        #   message is used in the example below. %{from} and %{to} parameters
+        #   are optional, and will be the from and to states, respectively.
+        #
         state :deleted,
           :from => [:active, :inactive],
           :timestamp => :deleted_at,
           :on_enter_deferred => [:delete_record, :delete_payment_info],
-          :guard => lambda {|r| r.active_services? }
+          :require => lambda {|r| !r.active_services? },
+          :message => "has invalid transition from %{from} to %{to}"
 
         # Custom triggers are called for certain "from" => "to" state
         #   combinations. They are especially useful for DRYing up triggers
@@ -63,24 +82,36 @@ Key features:
         # This triggers *only* on :inactive => :active. It will not trigger on
         #   nil => :active (setting initial state) [see notes on triggers and
         #   initial state below].
+        #
         on :inactive => :active, :trigger => :send_welcome_back_message
 
         # Multiple triggers can be specified on either side of the transition
-        #   or for the triggers:
-        on [:active, :inactive] => :deleted, :trigger => [:action_one, :action_two]
+        #   or for the trigger actions:
+        #
+        on [:active, :inactive] => :deleted, :trigger => [:do_one, :do_two]
         on :active => [:inactive, :deleted], :trigger => lambda {|r| r.act }
 
         # If :deferred is included, and it's true, then this trigger will
         #   happen post-save, instead of pre-validation. Default pre-validation
         #   triggers are recommended for changing other attributes. Post-save
         #   triggers are useful for logging or cascading changes to association
-        #   models.
+        #   models. Deferred trigger actions are run within the same database
+        #   transaction (for ActiveRecord and other ActiveModel children that
+        #   implement this).
+        #
         # Last, wildcards are supported. Note that the ruby parser requires a
         #   space after the asterisk for wildcards on the left side:
         #   works:    :* =>:whatever
         #   doesn't:  :*=>:whatever
+        #
+        # Utilize ActiveModel::Dirty's change history support to know what has
+        #   changed:
+        #   from = state_was   # (specifically, <state_column>_was)
+        #   to   = state
+        #
         on :* => :*, :trigger => :log_state_change, :deferred=>true
         on :* => :deleted, :trigger => :same_as_on_enter
+
       end
 
       # If you want to set states via ActionController/ActionView, you'll
@@ -90,7 +121,7 @@ Key features:
     end
 
 
-==== Just ActiveModel
+### Just ActiveModel ###
 
     class Account
       include ActiveModel::Dirty
@@ -99,18 +130,22 @@ Key features:
       include CanHasState::Machine
 
       state_machine :account_state do
-        state :active, :initial, :from => :inactive
-        state :inactive,         :from => :active
-        state :deleted,          :from => [:active, :inactive], :timestamp => :deleted_at
+        state :active, :initial,
+          :from => :inactive
+        state :inactive,
+          :from => :active
+        state :deleted,
+          :from => [:active, :inactive],
+          :timestamp => :deleted_at
       end
 
     end
 
 
 
-== Managing states
+## Managing states ##
 
-States are set directly via the state column--no added methods.
+States are set directly via the relevant state column--no added methods.
 
     @account = Account.new
     @account.save!
@@ -131,12 +166,19 @@ With multiple state machines on a single model, this also eliminates any name
 collisions.
 
     class Account < ActiveRecord::Base
+
+      # column is :state
       state_machine :state do
-        state :active,   :from => :inactive, :guard=>lambda{|r| r.payment_status=='current'}
-        state :inactive, :from => :active
-        state :deleted,  :from => [:active, :inactive]
+        state :active,
+          :from => :inactive,
+          :require => lambda{|r| r.payment_status=='current'}
+        state :inactive,
+          :from => :active
+        state :deleted,
+          :from => [:active, :inactive]
       end
 
+      # column is :payment_status
       state_machine :payment_status do
         state :pending, :initial
         state :current
@@ -156,8 +198,8 @@ collisions.
     @account.save!
 
 
-You can also check a potential state change using the method 
-"allow_#{state_machine_column_name}?(potential_state)":
+You can also check a potential state change using the method  
+`"allow_#{state_machine_column_name}?(potential_state)"`.
 
     @account.allow_state? :active
     # => false
@@ -166,31 +208,31 @@ You can also check a potential state change using the method
 
 
 If you really want event-changing methods, it's just as straight-forward to
-write them as normal methods instead of attempting to cram them into a DSL:
+write them as normal methods instead of attempting to cram them into a DSL.
 
     def delete!
       self.state = 'deleted'
       save!
     end
 
-When save!() is called, the state changes will be validated and all 
+When `save!` is called, the state changes will be validated and all triggers
 will be called.
 
 
 
-== Notes on triggers and initial state
+## Notes on triggers and initial state ##
 
-can_has_state relies on the ActiveModel::Dirty module to detect when a state
+`can_has_state` relies on the `ActiveModel::Dirty` module to detect when a state
 attribute has changed. In general, this shouldn't matter much to you.
 
 However, triggers involving initial values can be tricky. If your database
-schema sets the default value to the initial value, :on_enter and custom
+schema sets the default value to the initial value, `:on_enter` and custom
 triggers will *not* be called because nothing has changed. On the other hand,
 if the state column defaults to a null value, then the triggers will be called
 because the initial state value changed from nil to the initial state.
 
 
 
-== Compatibility
+## Compatibility ##
 
 Tested with Ruby 1.9 and ActiveSupport and ActiveModel 3.2.8.
