@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.version     = CanHasState::VERSION
   s.authors     = ["thomas morgan"]
   s.email       = ["tm@iprog.com"]
-  s.homepage    = "http://iprog.com/projects"
+  s.homepage    = "https://github.com/zarqman/can_has_state"
   s.summary     = "Super simple state machine for ActiveModel"
   s.description = "can_has_state is a simplified state machine gem. It relies on ActiveModel and
   should be compatible with any ActiveModel-compatible persistence layer."

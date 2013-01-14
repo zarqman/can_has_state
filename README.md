@@ -15,6 +15,13 @@ Key features:
 
 
 
+## Installation ##
+
+Add it to your `Gemfile`:
+
+    gem 'can_has_state'
+
+
 ## DSL ##
 
 ### ActiveRecord ###
