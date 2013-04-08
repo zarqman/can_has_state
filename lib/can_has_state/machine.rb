@@ -64,6 +64,7 @@ module CanHasState
     end
 
     def can_has_deferred_state_triggers
+      @triggers_called ||= {}
       state_machines.each do |(column, sm)|
         # clear record of called triggers
         @triggers_called[column] = nil
