@@ -16,7 +16,7 @@ module CanHasState
 
       def extend_state_machine(column, &block)
         sm = state_machines.detect{|(col, stm)| col == column}
-        raise("Unknown state machine #{column}") unless sm
+        raise(ArgumentError, "Unknown state machine #{column}") unless sm
         sm[1].extend_machine &block
       end
 
@@ -30,7 +30,7 @@ module CanHasState
       before_validation :can_has_initial_states
       before_validation :can_has_state_triggers
       validate :can_has_valid_state_machines
-      after_save :can_has_deferred_state_triggers
+      after_save :can_has_deferred_state_triggers if respond_to?(:after_save)
     end
 
 
@@ -81,7 +81,7 @@ module CanHasState
         from, to = send("#{column}_was"), send(column)
         next if from == to
         if !sm.known?(to)
-          err << [column, "is not a known state"]
+          err << [column, "is not in a known state"]
         elsif !sm.allow?(self, to) #state_machine_allow?(column, to)
           err << [column, sm.message(to) % {:from=>from, :to=>to}]
         end

@@ -35,20 +35,26 @@ module CanHasState
         when :from
           from_vals = Array(val).map(&:to_s)
           from_vals << nil # for new records
-          guards << Proc.new{|r| from_vals.include? r.send("#{column}_was").try(:to_s)}
+          guards << Proc.new do |r|
+            val_was = r.send("#{column}_was")
+            val_was &&= val_was.to_s
+            from_vals.include? val_was
+          end
         when :guard, :require
           guards += Array(val)
         when :message
           message = val
         when :timestamp
-          @triggers << {:from=>["*"], :to=>[state_name], :trigger=>[Proc.new{|r| r.send("#{val}=", Time.current)}]}
+          @triggers << {:from=>["*"], :to=>[state_name], :trigger=>[Proc.new{|r| r.send("#{val}=", Time.now.utc)}]}
         when :on_enter
           @triggers << {:from=>["*"], :to=>[state_name], :trigger=>Array(val), :type=>:on_enter}
         when :on_enter_deferred
+          raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") unless respond_to?(:after_save)
           @triggers << {:from=>["*"], :to=>[state_name], :trigger=>Array(val), :type=>:on_enter, :deferred=>true}
         when :on_exit
           @triggers << {:from=>[state_name], :to=>["*"], :trigger=>Array(val), :type=>:on_exit}
         when :on_exit_deferred
+          raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") unless respond_to?(:after_save)
           @triggers << {:from=>[state_name], :to=>["*"], :trigger=>Array(val), :type=>:on_exit, :deferred=>true}
         end
       end
@@ -60,6 +66,7 @@ module CanHasState
     def on(pairs)
       trigger  = pairs.delete :trigger
       deferred = pairs.delete :deferred
+      raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") if deferred && !respond_to?(:after_save)
       pairs.each do |from, to|
         @triggers << {:from=>Array(from).map(&:to_s), :to=>Array(to).map(&:to_s), 
                       :trigger=>Array(trigger), :type=>:trigger, :deferred=>!!deferred}
@@ -69,10 +76,12 @@ module CanHasState
 
 
     def known?(to)
-       @states.keys.include? to
+      to &&= to.to_s
+      @states.keys.include? to
     end
 
     def allow?(record, to)
+      to &&= to.to_s
       return false unless known?(to)
       states[to][:guards].all? do |g|
         case g
@@ -87,11 +96,14 @@ module CanHasState
     end
 
     def message(to)
+      to &&= to.to_s
       states[to][:message]
     end
 
 
     def trigger(record, from, to, deferred=false)
+      from &&= from.to_s
+      to &&= to.to_s
       # Rails.logger.debug "Checking triggers for transition #{from} to #{to} (deferred:#{deferred.inspect})"
       @triggers.select do |trigger|
         deferred ? trigger[:deferred] : !trigger[:deferred]

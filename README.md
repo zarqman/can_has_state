@@ -104,7 +104,8 @@ Add it to your `Gemfile`:
         #   triggers are useful for logging or cascading changes to association
         #   models. Deferred trigger actions are run within the same database
         #   transaction (for ActiveRecord and other ActiveModel children that
-        #   implement this).
+        #   implement this). Deferred triggers require support for after_save
+        #   callbacks, compatible with that supported by ActiveRecord.
         #
         # Last, wildcards are supported. Note that the ruby parser requires a
         #   space after the asterisk for wildcards on the left side:
@@ -131,10 +132,12 @@ Add it to your `Gemfile`:
 ### Just ActiveModel ###
 
     class Account
-      include ActiveModel::Dirty
+      include CanHasState::DirtyHelper
       include ActiveModel::Validations
       include ActiveModel::Validations::Callbacks
       include CanHasState::Machine
+
+      track_dirty :account_state
 
       state_machine :account_state do
         state :active, :initial,
@@ -148,6 +151,16 @@ Add it to your `Gemfile`:
 
     end
 
+ActiveModel::Dirty tracking must be enabled for the attribute(s) that hold the
+state(s) in your model (see docs for ActiveModel::Dirty). If you're building on
+top of a library that supports this (ActiveRecord, Mongoid, etc.), you're fine.
+If not, CanHasState provides a helper module, `CanHasState::DirtyHelper`, that
+provides the supporting implementation required by ActiveModel::Dirty. Just call
+`track_dirty :attr_one, :attr_two` as shown above.
+
+Hint: deferred triggers aren't supported with bare ActiveModel. However, if a
+non-ActiveRecord persistence engine provides #after_save, then deferred triggers
+will be enabled.
 
 
 ## Managing states ##
@@ -230,7 +243,9 @@ will be called.
 ## Notes on triggers and initial state ##
 
 `can_has_state` relies on the `ActiveModel::Dirty` module to detect when a state
-attribute has changed. In general, this shouldn't matter much to you.
+attribute has changed. In general, this shouldn't matter much to you as long as
+you're using ActiveRecord, Mongoid, or something that implements full Dirty
+support.
 
 However, triggers involving initial values can be tricky. If your database
 schema sets the default value to the initial value, `:on_enter` and custom
@@ -242,4 +257,4 @@ because the initial state value changed from nil to the initial state.
 
 ## Compatibility ##
 
-Tested with Ruby 1.9 and ActiveSupport and ActiveModel 3.2.8.
+Tested with Ruby 1.9 and ActiveSupport and ActiveModel 4.0.
