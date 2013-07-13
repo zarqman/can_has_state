@@ -61,6 +61,14 @@ class UserPreState
   include ActiveModel::Validations::Callbacks
   include CanHasState::Machine
 end
+class UserPreState2
+  include ActiveModel::Validations
+  include ActiveModel::Validations::Callbacks
+  include CanHasState::Machine
+  def self.after_save(*_)
+    # dummy to allow deferred triggers
+  end
+end
 
 class CanHasStateTest < MiniTest::Unit::TestCase #Minitest::Test
 
@@ -119,6 +127,27 @@ class CanHasStateTest < MiniTest::Unit::TestCase #Minitest::Test
           state :three
           on :* => :*, trigger: ->{ raise "Shouldn't get here" }, deferred: true
         end
+      end
+    end
+  end
+
+  def test_deferred_available
+    UserPreState2.class_eval do
+      state_machine :state_one do
+        state :one, on_enter_deferred: ->{ puts 'Hello' }
+      end
+    end
+
+    UserPreState2.class_eval do
+      state_machine :state_two do
+        state :two, on_exit_deferred: ->{ puts 'Hello' }
+      end
+    end
+
+    UserPreState2.class_eval do
+      state_machine :state_three do
+        state :three
+        on :* => :*, trigger: ->{ puts 'Hello' }, deferred: true
       end
     end
   end

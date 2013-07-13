@@ -5,7 +5,7 @@ module CanHasState
     module ClassMethods
 
       def state_machine(column, &block)
-        d = Definition.new(column, &block)
+        d = Definition.new(column, self, &block)
 
         define_method "allow_#{column}?" do |to|
           state_machine_allow?(column.to_sym, to.to_s)

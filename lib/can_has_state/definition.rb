@@ -3,7 +3,8 @@ module CanHasState
 
     attr_reader :column, :states, :initial_state, :triggers
 
-    def initialize(column_name, &block)
+    def initialize(column_name, parent_context, &block)
+      @parent_context = parent_context
       @column = column_name.to_sym
       @states = {}
       @triggers = []
@@ -49,12 +50,12 @@ module CanHasState
         when :on_enter
           @triggers << {:from=>["*"], :to=>[state_name], :trigger=>Array(val), :type=>:on_enter}
         when :on_enter_deferred
-          raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") unless respond_to?(:after_save)
+          raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") unless @parent_context.respond_to?(:after_save)
           @triggers << {:from=>["*"], :to=>[state_name], :trigger=>Array(val), :type=>:on_enter, :deferred=>true}
         when :on_exit
           @triggers << {:from=>[state_name], :to=>["*"], :trigger=>Array(val), :type=>:on_exit}
         when :on_exit_deferred
-          raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") unless respond_to?(:after_save)
+          raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") unless @parent_context.respond_to?(:after_save)
           @triggers << {:from=>[state_name], :to=>["*"], :trigger=>Array(val), :type=>:on_exit, :deferred=>true}
         end
       end
@@ -66,7 +67,7 @@ module CanHasState
     def on(pairs)
       trigger  = pairs.delete :trigger
       deferred = pairs.delete :deferred
-      raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") if deferred && !respond_to?(:after_save)
+      raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") if deferred && !@parent_context.respond_to?(:after_save)
       pairs.each do |from, to|
         @triggers << {:from=>Array(from).map(&:to_s), :to=>Array(to).map(&:to_s), 
                       :trigger=>Array(trigger), :type=>:trigger, :deferred=>!!deferred}
