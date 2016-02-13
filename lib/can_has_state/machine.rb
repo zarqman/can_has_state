@@ -18,6 +18,7 @@ module CanHasState
         sm = state_machines.detect{|(col, stm)| col == column}
         raise(ArgumentError, "Unknown state machine #{column}") unless sm
         sm[1].extend_machine &block
+        sm
       end
 
     end

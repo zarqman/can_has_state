@@ -122,10 +122,6 @@ Add it to your `Gemfile`:
 
       end
 
-      # If you want to set states via ActionController/ActionView, you'll
-      #   probably want something like this.
-      attr_accessible :state, :as=>:admin
-
     end
 
 
