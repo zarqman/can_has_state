@@ -20,6 +20,6 @@ Gem::Specification.new do |s|
   s.add_dependency "activemodel", ">= 4", "< 5.1"
   s.add_dependency "activesupport", ">= 4", "< 5.1"
 
-  s.add_development_dependency 'minitest', '~> 4.2'
-  s.add_development_dependency 'turn'
+  s.add_development_dependency 'minitest'
+  s.add_development_dependency 'minitest-reporters'
 end

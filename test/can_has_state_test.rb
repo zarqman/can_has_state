@@ -70,7 +70,7 @@ class UserPreState2
   end
 end
 
-class CanHasStateTest < MiniTest::Unit::TestCase #Minitest::Test
+class CanHasStateTest < Minitest::Test
 
   def test_builder_simple
     refute UserBare.respond_to?(:state_machine)
@@ -224,7 +224,7 @@ class CanHasStateTest < MiniTest::Unit::TestCase #Minitest::Test
 
     a.account_state = 'active'
     a.valid?
-    assert_match /invalid transition/, a.errors.to_a.first
+    assert_match(/invalid transition/, a.errors.to_a.first)
 
     a.account_state = 'inactive'
     assert a.valid?, "Errors: #{a.errors.to_a}"
@@ -232,7 +232,7 @@ class CanHasStateTest < MiniTest::Unit::TestCase #Minitest::Test
 
     a.account_state = 'special'
     a.valid?
-    assert_match /invalid transition/, a.errors.to_a.first
+    assert_match(/invalid transition/, a.errors.to_a.first)
 
     a.allow_special = true
     assert a.valid?, "Errors: #{a.errors.to_a}"

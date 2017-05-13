@@ -15,7 +15,7 @@ module CanHasState
           attr_reader(attr) unless respond_to?(attr)
           has_writer = respond_to?("#{attr}=")
           define_method "#{attr}=" do |val|
-            send("#{attr}_will_change!") unless val == instance_variable_get("@#{attr}")
+            send("#{attr}_will_change!") unless val == send(attr)
             has_writer ? super(val) : instance_variable_set("@#{attr}", val)
             changed_attributes.delete(attr) if attribute_was(attr) == send(attr)
           end

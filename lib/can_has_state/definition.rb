@@ -8,13 +8,13 @@ module CanHasState
       @column = column_name.to_sym
       @states = {}
       @triggers = []
-      instance_eval &block
+      instance_eval(&block)
       @initial_state ||= @states.keys.first
     end
 
 
     def extend_machine(&block)
-      instance_eval &block
+      instance_eval(&block)
     end
 
 

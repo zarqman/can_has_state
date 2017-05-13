@@ -1,4 +1,6 @@
 require 'minitest/autorun'
-require 'turn'
+
+require 'minitest/reporters'
+Minitest::Reporters.use! Minitest::Reporters::SpecReporter.new
 
 require 'can_has_state'

@@ -15,9 +15,10 @@ module CanHasState
       end
 
       def extend_state_machine(column, &block)
-        sm = state_machines.detect{|(col, stm)| col == column}
+        sm = state_machines.detect{|(col, _)| col == column}
+          # |(col, stm)|
         raise(ArgumentError, "Unknown state machine #{column}") unless sm
-        sm[1].extend_machine &block
+        sm[1].extend_machine(&block)
         sm
       end
 
@@ -97,7 +98,8 @@ module CanHasState
     end
 
     def state_machine_allow?(column, to)
-      sm = state_machines.detect{|(col, stm)| col == column}
+      sm = state_machines.detect{|(col, _)| col == column}
+        # |(col, stm)|
       raise("Unknown state machine #{column}") unless sm
       sm[1].allow?(self, to)
     end
