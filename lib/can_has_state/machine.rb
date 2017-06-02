@@ -71,7 +71,11 @@ module CanHasState
         # clear record of called triggers
         @triggers_called[column] = nil
         
-        from, to = send("#{column}_was"), send(column)
+        if respond_to?("#{column}_before_last_save") # rails 5.1+
+          from, to = send("#{column}_before_last_save"), send(column)
+        else
+          from, to = send("#{column}_was"), send(column)
+        end
         next if from == to
         sm.trigger(self, from, to, :deferred)
       end
