@@ -1,0 +1,5 @@
+en:
+  errors:
+    messages:
+      invalid_state: "is not in a known state"
+      invalid_transition: "has an invalid transition from %{from} to %{to}"

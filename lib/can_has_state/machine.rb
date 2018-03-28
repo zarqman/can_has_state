@@ -87,17 +87,17 @@ module CanHasState
         from, to = send("#{column}_was"), send(column)
         next if from == to
         if !sm.known?(to)
-          err << [column, "is not in a known state"]
+          err << [column, :invalid_state]
         elsif !sm.allow?(self, to) #state_machine_allow?(column, to)
-          err << [column, sm.message(to) % {:from=>from, :to=>to}]
+          err << [column, sm.message(to), {from: from, to: to}]
         end
       end
       err
     end
 
     def can_has_valid_state_machines
-      can_has_state_errors.each do |(column, msg)|
-        errors.add column, msg
+      can_has_state_errors.each do |(column, msg, opts)|
+        errors.add column, msg, opts||{}
       end
     end
 

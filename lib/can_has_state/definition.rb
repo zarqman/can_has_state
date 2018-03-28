@@ -28,7 +28,7 @@ module CanHasState
 
       # TODO: turn even guards into types of triggers ... then support :guard as a trigger param
       guards = []
-      message = "has invalid transition from %{from} to %{to}"
+      message = :invalid_transition
       # TODO: differentiate messages for :from errors vs. :guard errors
 
       options.each do |key, val|
