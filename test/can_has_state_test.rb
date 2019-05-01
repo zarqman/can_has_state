@@ -24,8 +24,8 @@ class Account
 
   def fake_persist
     if valid?
-      # just reset dirty tracking and pretend all is good
-      changed_attributes.clear
+      # reset dirty tracking as if we had persisted
+      changes_applied
       true
     end
   end
