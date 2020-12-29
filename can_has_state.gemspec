@@ -17,7 +17,7 @@ Gem::Specification.new do |s|
   s.files = Dir["{app,config,db,lib}/**/*"] + ["MIT-LICENSE", "Rakefile", "README.md"]
   s.test_files = Dir["test/**/*"]
 
-  s.add_dependency "activemodel", ">= 5", "< 6.1"
+  s.add_dependency "activemodel", ">= 5.2", "< 6.2"
 
   s.add_development_dependency 'minitest'
   s.add_development_dependency 'minitest-reporters'

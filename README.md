@@ -253,4 +253,4 @@ because the initial state value changed from nil to the initial state.
 
 ## Compatibility ##
 
-Tested with Ruby 2.3-2.4 and ActiveSupport and ActiveModel 4.2-5.1.
+Tested with Ruby 2.3-2.6+ and ActiveSupport and ActiveModel 5.2-6.1+.
