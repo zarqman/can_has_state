@@ -13,6 +13,7 @@ Gem::Specification.new do |s|
   s.summary     = "Super simple state machine for ActiveModel"
   s.description = "can_has_state is a simplified state machine gem. It relies on ActiveModel and
   should be compatible with any ActiveModel-compatible persistence layer."
+  s.license     = 'MIT'
 
   s.files = Dir["{app,config,db,lib}/**/*"] + ["MIT-LICENSE", "Rakefile", "README.md"]
   s.test_files = Dir["test/**/*"]
