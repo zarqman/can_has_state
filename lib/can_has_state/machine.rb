@@ -97,7 +97,7 @@ module CanHasState
 
     def can_has_valid_state_machines
       can_has_state_errors.each do |(column, msg, opts)|
-        errors.add column, msg, opts||{}
+        errors.add column, msg, **(opts||{})
       end
     end
 
