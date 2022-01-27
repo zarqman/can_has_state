@@ -1,0 +1,5 @@
+ja:
+  errors:
+    messages:
+      invalid_state: は既知の状態ではありません。
+      invalid_transition: に、 %{from} から %{to} への無効な移行があります。

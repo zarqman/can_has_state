@@ -5,7 +5,9 @@ require 'active_model'
   require "can_has_state/#{f}"
 end
 
-# require 'active_support/i18n'
-I18n.load_path << File.dirname(__FILE__) + '/can_has_state/locale/en.yml'
+require 'active_support/i18n'
+Dir[File.join(__dir__, 'can_has_state', 'locale', '*.yml')].each do |fn|
+  I18n.load_path << fn
+end
 
 require 'can_has_state/railtie' if defined?(Rails)
