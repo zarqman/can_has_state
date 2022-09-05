@@ -248,9 +248,3 @@ schema sets the default value to the initial value, `:on_enter` and custom
 triggers will *not* be called because nothing has changed. On the other hand,
 if the state column defaults to a null value, then the triggers will be called
 because the initial state value changed from nil to the initial state.
-
-
-
-## Compatibility ##
-
-Tested with Ruby 2.3-2.6+ and ActiveSupport and ActiveModel 5.2-6.1+.
