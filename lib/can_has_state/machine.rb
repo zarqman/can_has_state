@@ -21,6 +21,14 @@ module CanHasState
       def extend_state_machine(column, &block)
         column = column.to_sym
         sm = state_machines[column] || raise(ArgumentError, "Unknown state machine #{column}")
+
+        # handle when sm is inherited from a parent class
+        if sm.parent_context != self
+          sm = sm.dup
+          sm.parent_context = self
+          self.state_machines = state_machines.merge(column => sm)
+        end
+
         sm.extend_machine(&block)
         column
       end
@@ -29,8 +37,7 @@ module CanHasState
 
     included do
       unless method_defined? :state_machines
-        class_attribute :state_machines, instance_writer: false
-        self.state_machines = {}
+        class_attribute :state_machines, instance_writer: false, default: {}
       end
       before_validation :can_has_initial_states
       before_validation :can_has_state_triggers
@@ -84,6 +91,7 @@ module CanHasState
 
         @triggers_called[column] ||= []
         triggers = sm.triggers_for(from: from, to: to, deferred: true)
+
         triggers.each do |trigger|
           next if @triggers_called[column].include? trigger
 

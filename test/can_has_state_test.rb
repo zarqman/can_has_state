@@ -104,6 +104,29 @@ class CanHasStateTest < Minitest::Test
     end
   end
 
+  def test_extending_child_doesnt_affect_parent
+    child = Class.new(Account)
+    child.class_eval do
+      attr_accessor :trigger_called
+      extend_state_machine :account_state do
+        on :* => :*, trigger: Proc.new{|r| r.trigger_called = true}
+      end
+    end
+    assert_equal 2, Account.state_machines[:account_state].triggers.size
+    assert_equal 3, child.state_machines[:account_state].triggers.size
+
+    a = Account.new
+    a.account_state = 'inactive'
+    assert a.fake_persist
+    # should not raise error calling trigger_called=
+
+    a = child.new
+    a.account_state = 'inactive'
+    assert a.fake_persist
+    assert_equal true, a.trigger_called
+  end
+
+
   def test_deferred_unavailable
     assert_raises(ArgumentError) do
       UserPreState.class_eval do

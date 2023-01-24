@@ -1,15 +1,26 @@
 module CanHasState
   class Definition
 
-    attr_reader :column, :states, :initial_state, :triggers
+    attr_accessor :parent_context
+    attr_reader :column, :states, :triggers, :initial_state
 
-    def initialize(column_name, parent_context, &block)
-      @parent_context = parent_context
+    def initialize(column_name, model_class, &block)
+      @parent_context = model_class
       @column = column_name.to_sym
       @states = {}
       @triggers = []
       instance_eval(&block)
       @initial_state ||= @states.keys.first
+    end
+
+    def initialize_dup(orig)
+      @states = @states.deep_dup
+      @triggers = @triggers.map do |t|
+        t = t.dup
+        t.state_machine = self
+        t
+      end
+      super
     end
 
 
