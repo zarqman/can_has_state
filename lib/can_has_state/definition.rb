@@ -46,17 +46,15 @@ module CanHasState
         when :message
           message = val
         when :timestamp
-          @triggers << {:from=>["*"], :to=>[state_name], :trigger=>[Proc.new{|r| r.send("#{val}=", Time.now.utc)}]}
+          @triggers << Trigger.new(self, from: '*', to: state_name, trigger: Proc.new{|r| r.send("#{val}=", Time.now.utc)}, type: :timestamp)
         when :on_enter
-          @triggers << {:from=>["*"], :to=>[state_name], :trigger=>Array(val), :type=>:on_enter}
+          @triggers << Trigger.new(self, from: '*', to: state_name, trigger: val, type: :on_enter)
         when :on_enter_deferred
-          raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") unless @parent_context.respond_to?(:after_save)
-          @triggers << {:from=>["*"], :to=>[state_name], :trigger=>Array(val), :type=>:on_enter, :deferred=>true}
+          @triggers << Trigger.new(self, from: '*', to: state_name, trigger: val, type: :on_enter, deferred: true)
         when :on_exit
-          @triggers << {:from=>[state_name], :to=>["*"], :trigger=>Array(val), :type=>:on_exit}
+          @triggers << Trigger.new(self, from: state_name, to: '*', trigger: val, type: :on_exit)
         when :on_exit_deferred
-          raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") unless @parent_context.respond_to?(:after_save)
-          @triggers << {:from=>[state_name], :to=>["*"], :trigger=>Array(val), :type=>:on_exit, :deferred=>true}
+          @triggers << Trigger.new(self, from: state_name, to: '*', trigger: val, type: :on_exit, deferred: true)
         end
       end
 
@@ -67,10 +65,8 @@ module CanHasState
     def on(pairs)
       trigger  = pairs.delete :trigger
       deferred = pairs.delete :deferred
-      raise(ArgumentError, "use of deferred triggers requires support for #after_save callbacks") if deferred && !@parent_context.respond_to?(:after_save)
       pairs.each do |from, to|
-        @triggers << {:from=>Array(from).map(&:to_s), :to=>Array(to).map(&:to_s), 
-                      :trigger=>Array(trigger), :type=>:trigger, :deferred=>!!deferred}
+        @triggers << Trigger.new(self, from: from, to: to, trigger: trigger, type: :trigger, deferred: deferred)
       end
     end
 
@@ -102,35 +98,15 @@ module CanHasState
     end
 
 
-    def trigger(record, from, to, deferred=false)
-      from &&= from.to_s
-      to &&= to.to_s
-      # Rails.logger.debug "Checking triggers for transition #{from} to #{to} (deferred:#{deferred.inspect})"
+    # conditions - :deferred
+    def triggers_for(from:, to:, **conditions)
+      from = from&.to_s
+      to   = to&.to_s
+      # Rails.logger.debug "Checking triggers for transition #{from.inspect} to #{to.inspect} (#{conditions.inspect})"
       @triggers.select do |trigger|
-        deferred ? trigger[:deferred] : !trigger[:deferred]
-      end.select do |trigger|
-        (trigger[:from].include?("*") || trigger[:from].include?(from)) &&
-            (trigger[:to].include?("*") || trigger[:to].include?(to))
+        trigger.matches? from: from, to: to, **conditions
       # end.each do |trigger|
-      #   Rails.logger.debug "  Matched trigger: #{trigger[:from].inspect} -- #{trigger[:to].inspect}"
-      end.each do |trigger|
-        call_triggers record, trigger
-      end
-    end
-
-
-    private
-
-    def call_triggers(record, trigger)
-      trigger[:trigger].each do |m|
-        case m
-        when Proc
-          m.call record
-        when Symbol, String
-          record.send m
-        else
-          raise ArgumentError, "Expecing Symbol or Proc for #{trigger[:type].inspect}, got #{m.class} : #{m}"
-        end
+      #   Rails.logger.debug "  Matched trigger: #{trigger.from.inspect} -- #{trigger.to.inspect}"
       end
     end
 

@@ -50,37 +50,46 @@ module CanHasState
     end
 
     def can_has_state_triggers
+      @triggers_called = {}
+
       # skip triggers if any state machine isn't valid
       return if can_has_state_errors.any?
 
-      @triggers_called ||= {}
       state_machines.each do |column, sm|
         from, to = send("#{column}_was"), send(column)
         next if from == to
 
-        # skip triggers if they've already been called for this from/to transition
-        next if @triggers_called[column] == [from, to]
+        @triggers_called[column] ||= []
+        triggers = sm.triggers_for(from: from, to: to)
 
-        sm.trigger(self, from, to)
+        triggers.each do |trigger|
+          # skip trigger if it's already been called
+          next if @triggers_called[column].include? trigger
 
-        # record that triggers were called
-        @triggers_called[column] = [from, to]
+          trigger.call self
+          @triggers_called[column] << trigger
+        end
+
       end
     end
 
     def can_has_deferred_state_triggers
-      @triggers_called ||= {}
       state_machines.each do |column, sm|
-        # clear record of called triggers
-        @triggers_called[column] = nil
-        
         if respond_to?("#{column}_before_last_save") # rails 5.1+
           from, to = send("#{column}_before_last_save"), send(column)
         else
           from, to = send("#{column}_was"), send(column)
         end
         next if from == to
-        sm.trigger(self, from, to, :deferred)
+
+        @triggers_called[column] ||= []
+        triggers = sm.triggers_for(from: from, to: to, deferred: true)
+        triggers.each do |trigger|
+          next if @triggers_called[column].include? trigger
+
+          trigger.call self
+          @triggers_called[column] << trigger
+        end
       end
     end
 

@@ -1,7 +1,7 @@
 require 'active_support'
 require 'active_model'
 
-%w(definition dirty_helper machine).each do |f|
+%w(definition dirty_helper machine trigger).each do |f|
   require "can_has_state/#{f}"
 end
 
