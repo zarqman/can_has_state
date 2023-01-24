@@ -78,7 +78,7 @@ class CanHasStateTest < Minitest::Test
     assert UserState.respond_to?(:state_machines)
     assert UserState.new.respond_to?(:allow_state?)
     assert_equal 1, UserState.state_machines.size
-    sm = UserState.state_machines[0][1]
+    sm = UserState.state_machines[:state]
     assert_equal :state, sm.column
     assert_equal 2, sm.states.size
     assert_equal 0, sm.triggers.size
@@ -87,7 +87,7 @@ class CanHasStateTest < Minitest::Test
 
   def test_builder_extended
     assert_equal 1, UserExtended.state_machines.size
-    sm = UserExtended.state_machines[0][1]
+    sm = UserExtended.state_machines[:state]
     assert_equal :state, sm.column
     assert_equal 4, sm.states.size
     assert_equal 0, sm.triggers.size
@@ -154,7 +154,7 @@ class CanHasStateTest < Minitest::Test
 
   def test_builder_complex
     assert_equal 1, Account.state_machines.size
-    sm = Account.state_machines[0][1]
+    sm = Account.state_machines[:account_state]
     assert_equal :account_state, sm.column
     assert_equal 4, sm.states.size
     assert_equal 2, sm.triggers.size
@@ -162,8 +162,8 @@ class CanHasStateTest < Minitest::Test
   end
 
   def test_state_builder
-    sm_acct = Account.state_machines[0][1]
-    sm_user = UserState.state_machines[0][1]
+    sm_acct = Account.state_machines[:account_state]
+    sm_user = UserState.state_machines[:state]
     assert_equal 0, sm_user.states['awesome'][:guards].size
     assert_equal 1, sm_acct.states['active'][:guards].size
   end

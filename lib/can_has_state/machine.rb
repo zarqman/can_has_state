@@ -5,29 +5,32 @@ module CanHasState
     module ClassMethods
 
       def state_machine(column, &block)
+        column = column.to_sym
+        raise(ArgumentError, "State machine for #{column} already exists") if state_machines.key?(column)
+
         d = Definition.new(column, self, &block)
 
         define_method "allow_#{column}?" do |to|
           state_machine_allow?(column.to_sym, to.to_s)
         end
 
-        self.state_machines += [[column.to_sym, d]]
+        self.state_machines = state_machines.merge(column => d)
+        column
       end
 
       def extend_state_machine(column, &block)
-        sm = state_machines.detect{|(col, _)| col == column}
-          # |(col, stm)|
-        raise(ArgumentError, "Unknown state machine #{column}") unless sm
-        sm[1].extend_machine(&block)
-        sm
+        column = column.to_sym
+        sm = state_machines[column] || raise(ArgumentError, "Unknown state machine #{column}")
+        sm.extend_machine(&block)
+        column
       end
 
     end
 
     included do
       unless method_defined? :state_machines
-        class_attribute :state_machines, :instance_writer=>false
-        self.state_machines = []
+        class_attribute :state_machines, instance_writer: false
+        self.state_machines = {}
       end
       before_validation :can_has_initial_states
       before_validation :can_has_state_triggers
@@ -39,7 +42,7 @@ module CanHasState
     private
 
     def can_has_initial_states
-      state_machines.each do |(column, sm)|
+      state_machines.each do |column, sm|
         if send(column).blank?
           send("#{column}=", sm.initial_state)
         end
@@ -51,7 +54,7 @@ module CanHasState
       return if can_has_state_errors.any?
 
       @triggers_called ||= {}
-      state_machines.each do |(column, sm)|
+      state_machines.each do |column, sm|
         from, to = send("#{column}_was"), send(column)
         next if from == to
 
@@ -67,7 +70,7 @@ module CanHasState
 
     def can_has_deferred_state_triggers
       @triggers_called ||= {}
-      state_machines.each do |(column, sm)|
+      state_machines.each do |column, sm|
         # clear record of called triggers
         @triggers_called[column] = nil
         
@@ -83,7 +86,7 @@ module CanHasState
 
     def can_has_state_errors
       err = []
-      state_machines.each do |(column, sm)|
+      state_machines.each do |column, sm|
         from, to = send("#{column}_was"), send(column)
         next if from == to
         if !sm.known?(to)
@@ -102,10 +105,8 @@ module CanHasState
     end
 
     def state_machine_allow?(column, to)
-      sm = state_machines.detect{|(col, _)| col == column}
-        # |(col, stm)|
-      raise("Unknown state machine #{column}") unless sm
-      sm[1].allow?(self, to)
+      sm = state_machines[column.to_sym] || raise("Unknown state machine #{column}")
+      sm.allow?(self, to)
     end
 
   end
