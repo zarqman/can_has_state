@@ -223,6 +223,7 @@ class CanHasStateTest < Minitest::Test
     assert_equal ['Account state is not in a known state'], a.errors.to_a
   end
 
+
   def test_triggers
     a = Account.new
     a.fake_persist
@@ -239,6 +240,58 @@ class CanHasStateTest < Minitest::Test
     assert a.fake_persist, "Unexpected error: #{a.errors.to_a}"
     assert a.undeleted, 'Expecting undeleted to be set'
   end
+
+  def test_trigger_symbol
+    kl = Class.new(Account)
+    kl.class_eval do
+      attr_accessor :trigger_called
+      extend_state_machine :account_state do
+        on :* => :*, trigger: :call_trigger
+      end
+      def call_trigger
+        self.trigger_called = true
+      end
+    end
+    a = kl.new
+    refute a.trigger_called
+
+    a.account_state = 'inactive'
+    assert a.fake_persist
+    assert a.trigger_called
+  end
+
+  def test_trigger_proc_arity_0
+    kl = Class.new(Account)
+    kl.class_eval do
+      attr_accessor :trigger_called
+      extend_state_machine :account_state do
+        on :* => :*, trigger: Proc.new{self.trigger_called = true}
+      end
+    end
+    a = kl.new
+    refute a.trigger_called
+
+    a.account_state = 'inactive'
+    assert a.fake_persist
+    assert a.trigger_called
+  end
+
+  def test_trigger_proc_arity_1
+    kl = Class.new(Account)
+    kl.class_eval do
+      attr_accessor :trigger_called
+      extend_state_machine :account_state do
+        on :* => :*, trigger: Proc.new{|r| r.trigger_called = true}
+      end
+    end
+    a = kl.new
+    refute a.trigger_called
+
+    a.account_state = 'inactive'
+    assert a.fake_persist
+    assert a.trigger_called
+  end
+
 
   def test_guards
     a = Account.new

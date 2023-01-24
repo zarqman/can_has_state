@@ -32,7 +32,11 @@ module CanHasState
       perform.each do |m|
         case m
         when Proc
-          m.call record
+          if m.arity.zero?
+            record.instance_eval(&m)
+          else
+            m.call record
+          end
         when Symbol, String
           record.send m
         end

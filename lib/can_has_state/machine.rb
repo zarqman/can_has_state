@@ -76,7 +76,6 @@ module CanHasState
           trigger.call self
           @triggers_called[column] << trigger
         end
-
       end
     end
 
