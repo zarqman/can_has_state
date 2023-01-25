@@ -1,4 +1,4 @@
-# CanHasState #
+# CanHasState
 
 
 `can_has_state` is a simplified state machine gem. It relies on ActiveModel and
@@ -10,21 +10,21 @@ Key features:
 * Simplified DSL syntax
 * Few added methods avoids clobbering up model's namespace
 * Compatible with ActionPack-style attribute value changes via  
-  `:state_column => 'new_state'`
+  `state_column: 'new_state'`
 * Use any ActiveModel-compatible persistence layer (including your own)
 
 
 
-## Installation ##
+## Installation
 
 Add it to your `Gemfile`:
 
     gem 'can_has_state'
 
 
-## DSL ##
+## DSL
 
-### ActiveRecord ###
+### ActiveRecord
 
     class Account < ActiveRecord::Base
 
@@ -43,20 +43,20 @@ Add it to your `Gemfile`:
         #   under triggers.
         #
         state :active, :initial,
-          :from => :inactive,
-          :on_enter => :update_plan_details,
-          :on_enter_deferred => :start_billing,
-          :on_exit_deferred => lambda { |r| r.stop_billing }
+          from: :inactive,
+          on_enter: :update_plan_details,
+          on_enter_deferred: :start_billing,
+          on_exit_deferred: lambda{|r| r.stop_billing }
 
         # :from restricts which states can switch to this one. Multiple "from"
-        #   states are allowed, as shown under state :deleted.
+        #   states are allowed, as shown below under `state :deleted`.
         #
         # If :from is not present, this state may be entered from any other
         #   state. To prevent ever moving to a given state (only useful if that
-        #   state is also the initial state), use :from => [] .
+        #   state is also the initial state), use `from: []`.
         #
         state :inactive,
-          :from => [:active]
+          from: [:active]
 
         # :timestamp automatically sets the current date/time when this state
         #   is entered. Both *_at and *_on (datetime and date) columns are
@@ -65,21 +65,22 @@ Add it to your `Gemfile`:
         # :require adds additional restrictions before this state can be
         #   entered. Like :on_enter/:on_exit, it can be a method name or a
         #   lambda/Proc. Multiple methods may be provided. Each method must
-        #   return a ruby true value (anything except nil or false) for the
+        #   return a ruby truthy value (anything except nil or false) for the
         #   condition to be satisfied. If any :require is not true, then the
         #   state transition is blocked.
         #
         # :message allows the validation error message to be customized. It is
         #   used when conditions for either :from or :require fail. The default
         #   message is used in the example below. %{from} and %{to} parameters
-        #   are optional, and will be the from and to states, respectively.
+        #   are optional, and will be the old (from) and new (to) values of the
+        #   state field.
         #
         state :deleted,
-          :from => [:active, :inactive],
-          :timestamp => :deleted_at,
-          :on_enter_deferred => [:delete_record, :delete_payment_info],
-          :require => lambda {|r| !r.active_services? },
-          :message => "has invalid transition from %{from} to %{to}"
+          from: [:active, :inactive],
+          timestamp: :deleted_at,
+          on_enter_deferred: [:delete_record, :delete_payment_info],
+          require: proc{ !active_services? },
+          message: "has invalid transition from %{from} to %{to}"
 
         # Custom triggers are called for certain "from" => "to" state
         #   combinations. They are especially useful for DRYing up triggers
@@ -95,8 +96,8 @@ Add it to your `Gemfile`:
         # Multiple triggers can be specified on either side of the transition
         #   or for the trigger actions:
         #
-        on [:active, :inactive] => :deleted, :trigger => [:do_one, :do_two]
-        on :active => [:inactive, :deleted], :trigger => lambda {|r| r.act }
+        on [:active, :inactive] => :deleted, trigger: [:do_one, :do_two]
+        on :active => [:inactive, :deleted], trigger: ->(r){ r.act }
 
         # If :deferred is included, and it's true, then this trigger will
         #   happen post-save, instead of pre-validation. Default pre-validation
@@ -117,15 +118,15 @@ Add it to your `Gemfile`:
         #   from = state_was   # (specifically, <state_column>_was)
         #   to   = state
         #
-        on :* => :*, :trigger => :log_state_change, :deferred=>true
-        on :* => :deleted, :trigger => :same_as_on_enter
+        on :* => :*, trigger: :log_state_change, deferred: true
+        on :* => :deleted, trigger: :same_as_on_enter
 
       end
 
     end
 
 
-### Just ActiveModel ###
+### Just ActiveModel
 
     class Account
       include CanHasState::DirtyHelper
@@ -137,12 +138,12 @@ Add it to your `Gemfile`:
 
       state_machine :account_state do
         state :active, :initial,
-          :from => :inactive
+          from: :inactive
         state :inactive,
-          :from => :active
+          from: :active
         state :deleted,
-          :from => [:active, :inactive],
-          :timestamp => :deleted_at
+          from: [:active, :inactive],
+          timestamp: :deleted_at
       end
 
     end
@@ -159,7 +160,7 @@ non-ActiveRecord persistence engine provides #after_save, then deferred triggers
 will be enabled.
 
 
-## Managing states ##
+## Managing states
 
 States are set directly via the relevant state column--no added methods.
 
@@ -186,12 +187,12 @@ collisions.
       # column is :state
       state_machine :state do
         state :active,
-          :from => :inactive,
-          :require => lambda{|r| r.payment_status=='current'}
+          from: :inactive,
+          require: lambda{|r| r.payment_status=='current'}
         state :inactive,
-          :from => :active
+          from: :active
         state :deleted,
-          :from => [:active, :inactive]
+          from: [:active, :inactive]
       end
 
       # column is :payment_status
@@ -236,7 +237,7 @@ will be called.
 
 
 
-## Notes on triggers and initial state ##
+## Using triggers on initial states
 
 `can_has_state` relies on the `ActiveModel::Dirty` module to detect when a state
 attribute has changed. In general, this shouldn't matter much to you as long as
@@ -248,3 +249,23 @@ schema sets the default value to the initial value, `:on_enter` and custom
 triggers will *not* be called because nothing has changed. On the other hand,
 if the state column defaults to a null value, then the triggers will be called
 because the initial state value changed from nil to the initial state.
+
+
+
+## Modifying state attributes in `before_validation`
+
+`can_has_state`'s validation callbacks run very early, almost always before any
+Model-specific validation. This ensures that validations and normal callbacks
+see the model's attributes after any triggers have been run.
+
+This can cause problems when modifying the value of a state attribute as part of
+a callback. The most common way this shows up is receiving state validation
+errors (typically due to a `:require`), even when a `before_validation` callback
+seems to be executed.
+
+Often, the best solution is to review the modification of state attributes
+during callbacks, as the original problem can hint at code design issue. If the
+callbacks are definitely warranted, try moving your validation to the start of
+the callback chain so it runs before `can_has_state`:
+
+    before_validation :some_method, prepend: true
