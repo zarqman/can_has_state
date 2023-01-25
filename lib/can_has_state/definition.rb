@@ -37,27 +37,24 @@ module CanHasState
         @initial_state = state_name
       end
 
-      # TODO: turn even guards into types of triggers ... then support :guard as a trigger param
-      guards = []
+      requirements = []
       message = :invalid_transition
-      # TODO: differentiate messages for :from errors vs. :guard errors
 
       options.each do |key, val|
         case key
         when :from
-          from_vals = Array(val).map(&:to_s)
+          from_vals = Array(val).compact.map(&:to_s)
           from_vals << nil # for new records
-          guards << Proc.new do |r|
-            val_was = r.send("#{column}_was")
-            val_was &&= val_was.to_s
+          requirements << lambda do |r|
+            val_was = r.send("#{column}_was")&.to_s
             from_vals.include? val_was
           end
-        when :guard, :require
-          guards += Array(val)
+        when :require
+          requirements += Array(val)
         when :message
           message = val
         when :timestamp
-          @triggers << Trigger.new(self, from: '*', to: state_name, trigger: Proc.new{|r| r.send("#{val}=", Time.now.utc)}, type: :timestamp)
+          @triggers << Trigger.new(self, from: '*', to: state_name, trigger: lambda{|r| r.send("#{val}=", Time.now.utc)}, type: :timestamp)
         when :on_enter
           @triggers << Trigger.new(self, from: '*', to: state_name, trigger: val, type: :on_enter)
         when :on_enter_deferred
@@ -71,7 +68,7 @@ module CanHasState
         end
       end
 
-      @states[state_name] = {:guards=>guards, :message=>message}
+      @states[state_name] = {requirements: requirements, message: message}
     end
 
 
@@ -86,27 +83,31 @@ module CanHasState
 
 
     def known?(to)
-      to &&= to.to_s
-      @states.keys.include? to
+      to = to&.to_s
+      states.keys.include? to
     end
 
     def allow?(record, to)
-      to &&= to.to_s
+      to = to&.to_s
       return false unless known?(to)
-      states[to][:guards].all? do |g|
+      states[to][:requirements].all? do |g|
         case g
         when Proc
-          g.call record
+          if g.arity.zero?
+            record.instance_eval(&g)
+          else
+            g.call record
+          end
         when Symbol, String
           record.send g
         else
-          raise ArgumentError, "Expecing Symbol or Proc for :guard, got #{g.class} : #{g}"
+          raise ArgumentError, "Expecing Symbol or Proc for :require, got #{g.class} : #{g}"
         end
       end
     end
 
     def message(to)
-      to &&= to.to_s
+      to = to&.to_s
       states[to][:message]
     end
 

@@ -220,8 +220,8 @@ class CanHasStateTest < Minitest::Test
   def test_state_builder
     sm_acct = Account.state_machines[:account_state]
     sm_user = UserState.state_machines[:state]
-    assert_equal 0, sm_user.states['awesome'][:guards].size
-    assert_equal 1, sm_acct.states['active'][:guards].size
+    assert_equal 0, sm_user.states['awesome'][:requirements].size
+    assert_equal 1, sm_acct.states['active'][:requirements].size
   end
 
 
@@ -343,7 +343,7 @@ class CanHasStateTest < Minitest::Test
     assert_match(/has an invalid transition from '' to 'special'/, a.errors.to_a.first)
   end
 
-  def test_guards
+  def test_requirements
     a = Account.new
     a.account_state = 'deleted'
     assert a.fake_persist
