@@ -111,23 +111,23 @@ module CanHasState
       end
     end
 
-    def can_has_state_errors
-      err = {}
+    def can_has_state_errors(reset: true)
+      @can_has_state_errors = {} if reset || !@can_has_state_errors
       state_machines.each do |column, sm|
         from, to = send("#{column}_was"), send(column)
         if !sm.known?(to)
-          err[column] = [:invalid_state]
+          @can_has_state_errors[column] = [:invalid_state]
         elsif from == to
           next
         elsif !sm.allow?(self, to) #state_machine_allow?(column, to)
-          err[column] = [sm.message(to), {from: "'#{from}'", to: "'#{to}'"}]
+          @can_has_state_errors[column] = [sm.message(to), {from: "'#{from}'", to: "'#{to}'"}]
         end
       end
-      err
+      @can_has_state_errors
     end
 
     def validate_state_machines
-      can_has_state_errors.each do |column, (msg, opts)|
+      can_has_state_errors(reset: false).each do |column, (msg, opts)|
         errors.add column, msg, **(opts||{})
       end
     end

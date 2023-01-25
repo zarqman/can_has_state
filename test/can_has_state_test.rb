@@ -406,6 +406,74 @@ class CanHasStateTest < Minitest::Test
   end
 
 
+  def test_errors_resolved_in_later_callback_are_kept
+    # Triggers are skipped when the state_machine has validation errors.
+    # Whether or not to skip is decided in an early before_validation callback.
+    # Even if a later callback resolves the validation error, it's important to
+    # still bubble up the errors since triggers did not run.
+    kl = build_from_skeleton do
+      attr_accessor :have_beans, :coffee_in_hand
+      extend_state_machine :state do
+        state :incredible,
+          require: proc{ coffee_in_hand > 0 }
+      end
+      before_validation { self.coffee_in_hand += 1 if have_beans }
+      def initialize
+        @coffee_in_hand = 0
+      end
+    end
+    m = kl.new
+    m.state = 'incredible'
+    refute m.valid?
+    assert m.errors.of_kind?(:state, :invalid_transition)
+    assert_equal 0, m.coffee_in_hand
+
+    m = kl.new
+    m.have_beans = true
+    m.state = 'incredible'
+    refute m.valid?
+    assert m.errors.of_kind?(:state, :invalid_transition)
+    assert_equal 1, m.coffee_in_hand
+  end
+
+  def test_rerunning_triggers_clears_pre_callback_errors
+    # To resolve the issue above, it is possible to re-eval the state_machine
+    # and run triggers if validations now pass. This is highly discouraged as
+    # complex callback callback interactions like this should be refactored out
+    # if at all possible.
+    # Not an officially supported solution and subject to change, but
+    # documented here to show that it is (presently) possible.
+    kl = build_from_skeleton do
+      attr_accessor :have_beans, :coffee_in_hand, :we_are_incredible
+      extend_state_machine :state do
+        state :incredible,
+          require: proc{ coffee_in_hand > 0 },
+          on_enter: proc{ self.we_are_incredible = true }
+      end
+      before_validation do
+        self.coffee_in_hand += 1 if have_beans
+        run_state_triggers
+      end
+      def initialize
+        @coffee_in_hand = 0
+      end
+    end
+    m = kl.new
+    m.state = 'incredible'
+    refute m.valid?
+    assert m.errors.of_kind?(:state, :invalid_transition)
+    assert_equal 0, m.coffee_in_hand
+    refute m.we_are_incredible
+
+    m = kl.new
+    m.have_beans = true
+    m.state = 'incredible'
+    assert m.valid?
+    assert_equal 1, m.coffee_in_hand
+    assert m.we_are_incredible
+  end
+
+
 
   def build_from_skeleton(&block)
     Class.new(Skeleton).tap do |kl|
