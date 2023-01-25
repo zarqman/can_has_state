@@ -1,4 +1,4 @@
-require 'active_support'
+require 'active_support/all'
 require 'active_model'
 
 %w(definition dirty_helper machine trigger).each do |f|

@@ -365,6 +365,47 @@ class CanHasStateTest < Minitest::Test
   end
 
 
+  def test_interacting_triggers
+    kl = build_from_skeleton do
+      track_dirty :mood, :outlook
+      attr_accessor :called_on_state, :called_on_mood, :called_on_outlook
+      extend_state_machine :state do
+        on :* => :awesome, trigger: proc{ self.called_on_state += 1 }
+      end
+      state_machine :mood do
+        state :happy
+        state :delighted,
+          on_enter: proc{
+            self.state = 'awesome'
+            self.outlook = 'outstanding'
+            self.called_on_mood += 1
+          }
+      end
+      state_machine :outlook do
+        state :positive
+        state :outstanding
+        on :positive => :*, trigger: proc{ self.called_on_outlook += 1 }
+      end
+      def initialize
+        @called_on_state   = 0
+        @called_on_mood    = 0
+        @called_on_outlook = 0
+      end
+    end
+    m = kl.new
+    assert m.fake_persist
+    assert_equal 0, m.called_on_mood
+    assert_equal 0, m.called_on_outlook
+    assert_equal 0, m.called_on_state
+
+    m.mood = 'delighted'
+    assert m.fake_persist
+    assert_equal 1, m.called_on_mood
+    assert_equal 1, m.called_on_outlook, 'should trigger on later state_machines'
+    assert_equal 1, m.called_on_state, 'should trigger on earlier state_machines'
+  end
+
+
 
   def build_from_skeleton(&block)
     Class.new(Skeleton).tap do |kl|

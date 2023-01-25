@@ -36,19 +36,18 @@ module CanHasState
     end
 
     included do
-      unless method_defined? :state_machines
-        class_attribute :state_machines, instance_writer: false, default: {}
-      end
-      before_validation :can_has_initial_states
-      before_validation :can_has_state_triggers
-      validate :can_has_valid_state_machines
-      after_save :can_has_deferred_state_triggers if respond_to?(:after_save)
+      class_attribute :state_machines, instance_writer: false, default: {}
+      before_validation :set_initial_state_machine_values
+      before_validation :reset_state_triggers
+      before_validation :run_state_triggers
+      validate :validate_state_machines
+      after_save :run_deferred_state_triggers if respond_to?(:after_save)
     end
 
 
     private
 
-    def can_has_initial_states
+    def set_initial_state_machine_values
       state_machines.each do |column, sm|
         if send(column).blank?
           send("#{column}=", sm.initial_state)
@@ -56,30 +55,42 @@ module CanHasState
       end
     end
 
-    def can_has_state_triggers
+    def reset_state_triggers
       @triggers_called = {}
+    end
 
+    def run_state_triggers
       # skip triggers if any state machine isn't valid
       return if can_has_state_errors.any?
 
-      state_machines.each do |column, sm|
-        from, to = send("#{column}_was"), send(column)
-        next if from == to
+      state_machines.size.times do
+        called = false
+        state_machines.each do |column, sm|
+          from, to = send("#{column}_was"), send(column)
+          next if from == to
 
-        @triggers_called[column] ||= []
-        triggers = sm.triggers_for(from: from, to: to)
+          @triggers_called[column] ||= []
+          triggers = sm.triggers_for(from: from, to: to)
 
-        triggers.each do |trigger|
-          # skip trigger if it's already been called
-          next if @triggers_called[column].include? trigger
+          triggers.each do |trigger|
+            # skip trigger if it's already been called
+            next if @triggers_called[column].include? trigger
 
-          trigger.call self
-          @triggers_called[column] << trigger
+            trigger.call self
+            @triggers_called[column] << trigger
+            called = true
+          end
         end
+        break unless called
       end
     end
 
-    def can_has_deferred_state_triggers
+    def run_deferred_state_triggers
+      tg = @triggers_called ||= {}
+        # if a trigger causes a circular save, @triggers_called can be reset mid-stream,
+        # causing `... << trigger` at the bottom to fail. this ensure we have a local
+        # copy that won't be reset.
+
       state_machines.each do |column, sm|
         if respond_to?("#{column}_before_last_save") # rails 5.1+
           from, to = send("#{column}_before_last_save"), send(column)
@@ -88,35 +99,35 @@ module CanHasState
         end
         next if from == to
 
-        @triggers_called[column] ||= []
+        tg[column] ||= []
         triggers = sm.triggers_for(from: from, to: to, deferred: true)
 
         triggers.each do |trigger|
-          next if @triggers_called[column].include? trigger
+          next if tg[column].include? trigger
 
           trigger.call self
-          @triggers_called[column] << trigger
+          tg[column] << trigger
         end
       end
     end
 
     def can_has_state_errors
-      err = []
+      err = {}
       state_machines.each do |column, sm|
         from, to = send("#{column}_was"), send(column)
         if !sm.known?(to)
-          err << [column, :invalid_state]
+          err[column] = [:invalid_state]
         elsif from == to
           next
         elsif !sm.allow?(self, to) #state_machine_allow?(column, to)
-          err << [column, sm.message(to), {from: "'#{from}'", to: "'#{to}'"}]
+          err[column] = [sm.message(to), {from: "'#{from}'", to: "'#{to}'"}]
         end
       end
       err
     end
 
-    def can_has_valid_state_machines
-      can_has_state_errors.each do |(column, msg, opts)|
+    def validate_state_machines
+      can_has_state_errors.each do |column, (msg, opts)|
         errors.add column, msg, **(opts||{})
       end
     end
