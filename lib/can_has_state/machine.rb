@@ -104,9 +104,10 @@ module CanHasState
       err = []
       state_machines.each do |column, sm|
         from, to = send("#{column}_was"), send(column)
-        next if from == to
         if !sm.known?(to)
           err << [column, :invalid_state]
+        elsif from == to
+          next
         elsif !sm.allow?(self, to) #state_machine_allow?(column, to)
           err << [column, sm.message(to), {from: "'#{from}'", to: "'#{to}'"}]
         end

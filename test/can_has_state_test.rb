@@ -257,6 +257,18 @@ class CanHasStateTest < Minitest::Test
     assert_equal ['Account state is not in a known state'], a.errors.to_a
   end
 
+  def test_state_with_invalid_default
+    kl = build_from_skeleton do
+      include ActiveModel::Attributes
+      attribute :state, :string, default: 'madeup'
+    end
+
+    m = kl.new
+    assert_equal 'madeup', m.state
+    refute m.valid?
+    assert m.errors.of_kind?(:state, :invalid_state)
+  end
+
 
   def test_triggers
     a = Account.new
