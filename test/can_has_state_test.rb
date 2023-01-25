@@ -97,6 +97,17 @@ class CanHasStateTest < Minitest::Test
     assert_equal 'fabulous', sm.initial_state
   end
 
+  def test_invalid_state_option
+    assert_raises(ArgumentError) do
+      build_from_skeleton do
+        state_machine :color do
+          state :red,
+            made_up: :option
+        end
+      end
+    end
+  end
+
   def test_builder_extended
     kl = build_from_skeleton do
       extend_state_machine :state do

@@ -66,6 +66,8 @@ module CanHasState
           @triggers << Trigger.new(self, from: state_name, to: '*', trigger: val, type: :on_exit)
         when :on_exit_deferred
           @triggers << Trigger.new(self, from: state_name, to: '*', trigger: val, type: :on_exit, deferred: true)
+        else
+          raise ArgumentError, "Unknown argument #{key.inspect}"
         end
       end
 
