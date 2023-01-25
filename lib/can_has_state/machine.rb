@@ -108,7 +108,7 @@ module CanHasState
         if !sm.known?(to)
           err << [column, :invalid_state]
         elsif !sm.allow?(self, to) #state_machine_allow?(column, to)
-          err << [column, sm.message(to), {from: from, to: to}]
+          err << [column, sm.message(to), {from: "'#{from}'", to: "'#{to}'"}]
         end
       end
       err

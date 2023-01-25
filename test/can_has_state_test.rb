@@ -293,6 +293,13 @@ class CanHasStateTest < Minitest::Test
   end
 
 
+  def test_transition_messagea_when_from_nil
+    a = Account.new
+    a.account_state = 'special'
+    a.validate
+    assert_match(/has an invalid transition from '' to 'special'/, a.errors.to_a.first)
+  end
+
   def test_guards
     a = Account.new
     a.account_state = 'deleted'
