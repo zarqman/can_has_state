@@ -1,5 +1,31 @@
 require 'test_helper'
 
+class Skeleton
+  include ActiveModel::Validations
+  include ActiveModel::Validations::Callbacks
+  include CanHasState::DirtyHelper
+  include CanHasState::Machine
+
+  track_dirty :state
+
+  state_machine :state do
+    state :awesome
+    state :fabulous, :initial
+  end
+
+  def self.after_save(...)
+    # dummy to allow deferred triggers
+  end
+
+  def fake_persist
+    if valid?
+      # reset dirty tracking as if we had persisted
+      changes_applied
+      true
+    end
+  end
+end
+
 class Account
   include ActiveModel::Validations
   include ActiveModel::Validations::Callbacks
@@ -41,21 +67,7 @@ class UserState
     state :fabulous, :initial
   end
 end
-class UserExtended
-  include ActiveModel::Validations
-  include ActiveModel::Validations::Callbacks
-  include CanHasState::Machine
-  state_machine :state do
-    state :awesome
-    state :fabulous, :initial
-  end
-  extend_state_machine :state do
-    state :incredible, :initial
-  end
-  extend_state_machine :state do
-    state :fantastic
-  end
-end
+
 class UserPreState
   include ActiveModel::Validations
   include ActiveModel::Validations::Callbacks
@@ -86,8 +98,17 @@ class CanHasStateTest < Minitest::Test
   end
 
   def test_builder_extended
-    assert_equal 1, UserExtended.state_machines.size
-    sm = UserExtended.state_machines[:state]
+    kl = build_from_skeleton do
+      extend_state_machine :state do
+        state :incredible, :initial
+      end
+      extend_state_machine :state do
+        state :fantastic
+      end
+    end
+
+    assert_equal 1, kl.state_machines.size
+    sm = kl.state_machines[:state]
     assert_equal :state, sm.column
     assert_equal 4, sm.states.size
     assert_equal 0, sm.triggers.size
@@ -96,7 +117,7 @@ class CanHasStateTest < Minitest::Test
 
   def test_extending
     assert_raises(ArgumentError) do
-      UserState.class_eval do
+      build_from_skeleton do
         extend_state_machine :doesnt_exist do
           state :phantom
         end
@@ -105,25 +126,25 @@ class CanHasStateTest < Minitest::Test
   end
 
   def test_extending_child_doesnt_affect_parent
-    child = Class.new(Account)
-    child.class_eval do
+    child = build_from_skeleton do
       attr_accessor :trigger_called
-      extend_state_machine :account_state do
-        on :* => :*, trigger: Proc.new{|r| r.trigger_called = true}
+      extend_state_machine :state do
+        on :* => :*, trigger: ->(r){ r.trigger_called = true}
       end
     end
-    assert_equal 2, Account.state_machines[:account_state].triggers.size
-    assert_equal 3, child.state_machines[:account_state].triggers.size
+    assert_equal 0, Skeleton.state_machines[:state].triggers.size
+    assert_equal 1, child.state_machines[:state].triggers.size
 
-    a = Account.new
-    a.account_state = 'inactive'
-    assert a.fake_persist
+    m = Skeleton.new
+    m.state = 'awesome'
+    refute m.respond_to?(:trigger_called=)
+    assert m.fake_persist
     # should not raise error calling trigger_called=
 
-    a = child.new
-    a.account_state = 'inactive'
-    assert a.fake_persist
-    assert_equal true, a.trigger_called
+    m = child.new
+    m.state = 'awesome'
+    assert m.fake_persist
+    assert_equal true, m.trigger_called
   end
 
 
@@ -131,7 +152,7 @@ class CanHasStateTest < Minitest::Test
     assert_raises(ArgumentError) do
       UserPreState.class_eval do
         state_machine :state_one do
-          state :one, on_enter_deferred: ->{ raise "Shouldn't get here" }
+          state :one, on_enter_deferred: proc{ raise "Shouldn't get here" }
         end
       end
     end
@@ -139,7 +160,7 @@ class CanHasStateTest < Minitest::Test
     assert_raises(ArgumentError) do
       UserPreState.class_eval do
         state_machine :state_two do
-          state :two, on_exit_deferred: ->{ raise "Shouldn't get here" }
+          state :two, on_exit_deferred: proc{ raise "Shouldn't get here" }
         end
       end
     end
@@ -148,7 +169,7 @@ class CanHasStateTest < Minitest::Test
       UserPreState.class_eval do
         state_machine :state_three do
           state :three
-          on :* => :*, trigger: ->{ raise "Shouldn't get here" }, deferred: true
+          on :* => :*, trigger: proc{ raise "Shouldn't get here" }, deferred: true
         end
       end
     end
@@ -157,23 +178,24 @@ class CanHasStateTest < Minitest::Test
   def test_deferred_available
     UserPreState2.class_eval do
       state_machine :state_one do
-        state :one, on_enter_deferred: ->{ puts 'Hello' }
+        state :one, on_enter_deferred: proc{ puts 'Hello' }
       end
     end
 
     UserPreState2.class_eval do
       state_machine :state_two do
-        state :two, on_exit_deferred: ->{ puts 'Hello' }
+        state :two, on_exit_deferred: proc{ puts 'Hello' }
       end
     end
 
     UserPreState2.class_eval do
       state_machine :state_three do
         state :three
-        on :* => :*, trigger: ->{ puts 'Hello' }, deferred: true
+        on :* => :*, trigger: proc{ puts 'Hello' }, deferred: true
       end
     end
   end
+
 
   def test_builder_complex
     assert_equal 1, Account.state_machines.size
@@ -207,6 +229,7 @@ class CanHasStateTest < Minitest::Test
     assert_equal 'inactive', a.account_state
     assert_equal 'inactive', a.account_state_was
   end
+
 
   def test_state_vals
     a = Account.new
@@ -242,10 +265,9 @@ class CanHasStateTest < Minitest::Test
   end
 
   def test_trigger_symbol
-    kl = Class.new(Account)
-    kl.class_eval do
+    kl = build_from_skeleton do
       attr_accessor :trigger_called
-      extend_state_machine :account_state do
+      extend_state_machine :state do
         on :* => :*, trigger: :call_trigger
       end
       def call_trigger
@@ -255,39 +277,37 @@ class CanHasStateTest < Minitest::Test
     a = kl.new
     refute a.trigger_called
 
-    a.account_state = 'inactive'
+    a.state = 'awesome'
     assert a.fake_persist
     assert a.trigger_called
   end
 
   def test_trigger_proc_arity_0
-    kl = Class.new(Account)
-    kl.class_eval do
+    kl = build_from_skeleton do
       attr_accessor :trigger_called
-      extend_state_machine :account_state do
+      extend_state_machine :state do
         on :* => :*, trigger: Proc.new{self.trigger_called = true}
       end
     end
     a = kl.new
     refute a.trigger_called
 
-    a.account_state = 'inactive'
+    a.state = 'awesome'
     assert a.fake_persist
     assert a.trigger_called
   end
 
   def test_trigger_proc_arity_1
-    kl = Class.new(Account)
-    kl.class_eval do
+    kl = build_from_skeleton do
       attr_accessor :trigger_called
-      extend_state_machine :account_state do
-        on :* => :*, trigger: Proc.new{|r| r.trigger_called = true}
+      extend_state_machine :state do
+        on :* => :*, trigger: lambda{|r| r.trigger_called = true}
       end
     end
     a = kl.new
     refute a.trigger_called
 
-    a.account_state = 'inactive'
+    a.state = 'awesome'
     assert a.fake_persist
     assert a.trigger_called
   end
@@ -319,6 +339,14 @@ class CanHasStateTest < Minitest::Test
 
     a.allow_special = true
     assert a.valid?, "Errors: #{a.errors.to_a}"
+  end
+
+
+
+  def build_from_skeleton(&block)
+    Class.new(Skeleton).tap do |kl|
+      kl.class_eval(&block)
+    end
   end
 
 end
