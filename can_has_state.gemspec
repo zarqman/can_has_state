@@ -15,7 +15,7 @@ Gem::Specification.new do |s|
   should be compatible with any ActiveModel-compatible persistence layer."
   s.license     = 'MIT'
 
-  s.files = Dir["{app,config,db,lib}/**/*"] + ["MIT-LICENSE", "Rakefile", "README.md"]
+  s.files = Dir["{app,config,db,lib}/**/*"] + ["LICENSE.txt", "Rakefile", "README.md"]
   s.test_files = Dir["test/**/*"]
 
   s.required_ruby_version = '>= 2.7'

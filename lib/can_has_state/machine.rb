@@ -92,11 +92,7 @@ module CanHasState
         # copy that won't be reset.
 
       state_machines.each do |column, sm|
-        if respond_to?("#{column}_before_last_save") # rails 5.1+
-          from, to = send("#{column}_before_last_save"), send(column)
-        else
-          from, to = send("#{column}_was"), send(column)
-        end
+        from, to = send("#{column}_before_last_save"), send(column)
         next if from == to
 
         tg[column] ||= []
