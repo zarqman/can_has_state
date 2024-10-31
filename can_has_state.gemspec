@@ -20,7 +20,7 @@ Gem::Specification.new do |s|
 
   s.required_ruby_version = '>= 2.7'
 
-  s.add_dependency "activemodel", ">= 6.0", "< 7.2"
+  s.add_dependency "activemodel", ">= 7.0", "< 8.1"
 
   s.add_development_dependency 'minitest'
   s.add_development_dependency 'minitest-reporters'
